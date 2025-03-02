@@ -1,13 +1,11 @@
-module products
+module products-service
 
-go 1.22
-
-toolchain go1.23.5
+go 1.21
 
 require (
-	google.golang.org/grpc v1.70.0
+	github.com/zerpajose/order-system/proto v0.0.0
+	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.36.5
-	order-system/proto v0.0.0
 )
 
 require (
@@ -17,4 +15,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
 )
 
-replace order-system/proto => ../proto
+replace github.com/zerpajose/order-system/proto => ../proto

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package products;
 
-option go_package = "order-system/proto";
+option go_package = "github.com/zerpajose/order-system/proto/products";
 
 service ProductService {
   rpc GetProduct (ProductRequest) returns (ProductResponse) {}

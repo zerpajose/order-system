@@ -2,65 +2,60 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
-	"net/http"
+	"net"
 	"google.golang.org/grpc"
-	pb "order-system/proto"
+	pb "github.com/zerpajose/order-system/proto/orders"
+	productpb "github.com/zerpajose/order-system/proto/products"
 )
 
-type Order struct {
-	OrderID    string   `json:"order_id"`
-	ProductIDs []string `json:"product_ids"`
+type server struct {
+	pb.UnimplementedOrderServiceServer
+	productClient productpb.ProductServiceClient
 }
 
-var productClient pb.ProductServiceClient
-
-func handleNewOrder(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var order Order
-	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
+func (s *server) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error) {
 	// Get product details for each product in the order
-	var products []*pb.ProductResponse
-	for _, productID := range order.ProductIDs {
-		product, err := productClient.GetProduct(context.Background(), &pb.ProductRequest{ProductId: productID})
+	var products []*productpb.ProductResponse
+	for _, productID := range req.ProductIds {
+		product, err := s.productClient.GetProduct(ctx, &productpb.ProductRequest{ProductId: productID})
 		if err != nil {
-			http.Error(w, "Error getting product details", http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 		products = append(products, product)
 	}
 
 	// TODO: Save order to database
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"order_id": order.OrderID,
-		"products": products,
-	})
+	return &pb.CreateOrderResponse{
+		OrderId:  req.OrderId,
+		Products: products,
+	}, nil
 }
 
 func main() {
 	// Set up gRPC connection to products service
-	conn, err := grpc.Dial("products-service:50051", grpc.WithInsecure())
+	productConn, err := grpc.Dial("products-service:50051", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("failed to connect to products service: %v", err)
 	}
-	defer conn.Close()
-	productClient = pb.NewProductServiceClient(conn)
+	defer productConn.Close()
 
-	// Set up HTTP server
-	http.HandleFunc("/orders", handleNewOrder)
-	log.Printf("Orders service listening at :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	// Create the server instance with product client
+	s := &server{
+		productClient: productpb.NewProductServiceClient(productConn),
+	}
+
+	// Start the gRPC server
+	lis, err := net.Listen("tcp", ":50052")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterOrderServiceServer(grpcServer, s)
+
+	log.Printf("Orders service listening at %v", lis.Addr())
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package orders;
+
+import "products.proto";
+
+option go_package = "github.com/zerpajose/order-system/proto/orders";
+
+service OrderService {
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse) {}
+}
+
+message CreateOrderRequest {
+  string order_id = 1;
+  repeated string product_ids = 2;
+}
+
+message CreateOrderResponse {
+  string order_id = 1;
+  repeated products.ProductResponse products = 2;
+}

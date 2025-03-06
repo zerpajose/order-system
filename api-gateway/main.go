@@ -1,20 +1,17 @@
 package main
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"google.golang.org/grpc"
-	pb "github.com/zerpajose/order-system/proto/orders"
 )
 
 type Order struct {
 	OrderID    string   `json:"order_id"`
 	ProductIDs []string `json:"product_ids"`
 }
-
-var orderClient pb.OrderServiceClient
 
 func handleNewOrder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -28,12 +25,24 @@ func handleNewOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Forward request to Orders service via gRPC
-	resp, err := orderClient.CreateOrder(context.Background(), &pb.CreateOrderRequest{
-		OrderId:    order.OrderID,
-		ProductIds: order.ProductIDs,
-	})
+	// Forward request to Orders service via HTTP
+	orderData, err := json.Marshal(order)
 	if err != nil {
+		http.Error(w, "Error creating order", http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := http.Post("http://orders-service:50052/orders", "application/json", bytes.NewBuffer(orderData))
+	if err != nil {
+		log.Printf("Error making request to Orders service: %v", err)
+		http.Error(w, "Error creating order", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		log.Printf("Orders service responded with status %d: %s", resp.StatusCode, string(body))
 		http.Error(w, "Error creating order", http.StatusInternalServerError)
 		return
 	}
@@ -43,18 +52,7 @@ func handleNewOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// Set up gRPC connection to orders service
-	conn, err := grpc.Dial("orders-service:50052", grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("failed to connect to orders service: %v", err)
-	}
-	defer conn.Close()
-	orderClient = pb.NewOrderServiceClient(conn)
-
-	// Set up HTTP server for external clients
 	http.HandleFunc("/orders", handleNewOrder)
-	log.Printf("API Gateway listening at :8090")
-	if err := http.ListenAndServe(":8090", nil); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	log.Println("API Gateway listening on port 8090")
+	log.Fatal(http.ListenAndServe(":8090", nil))
 }

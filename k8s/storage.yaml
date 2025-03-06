@@ -11,6 +11,20 @@ spec:
   storageClassName: standard
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: products-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/mnt/data/products"
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: orders-pvc
@@ -21,3 +35,17 @@ spec:
     requests:
       storage: 1Gi
   storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: orders-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: "/mnt/data/orders"

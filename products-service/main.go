@@ -1,54 +1,34 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"log"
-	"net"
-	"google.golang.org/grpc"
-	pb "github.com/zerpajose/order-system/proto/products"
+	"net/http"
 )
 
-type server struct {
-	pb.UnimplementedProductServiceServer
-	products map[string]*pb.ProductResponse
+type Product struct {
+	ProductID string  `json:"product_id"`
+	Name      string  `json:"name"`
+	Price     float64 `json:"price"`
+	Stock     int32   `json:"stock"`
 }
 
-func (s *server) GetProduct(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error) {
-	if product, ok := s.products[req.ProductId]; ok {
-		return product, nil
+var products = map[string]Product{
+	"1": {ProductID: "1", Name: "Laptop", Price: 999.99, Stock: 50},
+	"2": {ProductID: "2", Name: "Smartphone", Price: 599.99, Stock: 100},
+}
+
+func getProduct(w http.ResponseWriter, r *http.Request) {
+	productID := r.URL.Query().Get("product_id")
+	if product, ok := products[productID]; ok {
+		json.NewEncoder(w).Encode(product)
+		return
 	}
-	return nil, nil // Return nil if product not found
+	http.Error(w, "Product not found", http.StatusNotFound)
 }
 
 func main() {
-	// Initialize server with some sample products
-	s := &server{
-		products: map[string]*pb.ProductResponse{
-			"1": {
-				ProductId: "1",
-				Name:     "Laptop",
-				Price:    999.99,
-				Stock:    50,
-			},
-			"2": {
-				ProductId: "2",
-				Name:     "Smartphone",
-				Price:    599.99,
-				Stock:    100,
-			},
-		},
-	}
-
-	// Start gRPC server
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	pb.RegisterProductServiceServer(grpcServer, s)
-
-	log.Printf("Products service listening at %v", lis.Addr())
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	http.HandleFunc("/product", getProduct)
+	log.Println("Products service listening on port 50051")
+	log.Fatal(http.ListenAndServe(":50051", nil))
 }

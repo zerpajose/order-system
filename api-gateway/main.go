@@ -56,14 +56,8 @@ func handleNewOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
-	var responseBody map[string]Order
-	if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
-		http.Error(w, "Error decoding response from Orders service", http.StatusInternalServerError)
-		return
-	}
-
-	json.NewEncoder(w).Encode(responseBody)
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func main() {

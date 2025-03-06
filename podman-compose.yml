@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  products-service:
+    build:
+      context: ./products-service
+      dockerfile: Dockerfile
+    container_name: products-service
+    ports:
+      - "50051:50051"
+    volumes:
+      - products_data:/app/data
+
+  orders-service:
+    build:
+      context: ./orders-service
+      dockerfile: Dockerfile
+    container_name: orders-service
+    ports:
+      - "50052:50052"
+    volumes:
+      - orders_data:/app/data
+    depends_on:
+      - products-service
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8090:8090"
+    depends_on:
+      - orders-service
+      - products-service
+
+volumes:
+  products_data:
+  orders_data:
